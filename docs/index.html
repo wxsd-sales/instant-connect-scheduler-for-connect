@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Appointment</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        html, body {
+            height: 100%;
+            background-color: white;
+        }
+        
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .logo {
+            max-width: 100%;
+            max-height: 80vh;
+            margin-bottom: 2rem;
+        }
+        
+        .content-box {
+            background-color: white;
+            padding: 3rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 400px;
+        }
+        
+        .date-input {
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content-box">
+            <img id="logoImage" src="https://bulma.io/images/bulma-logo.png" alt="Logo" class="logo">
+            
+            <p class="title is-4 has-text-centered mt-5 mb-4">
+                Schedule your virtual appointment
+            </p>
+            
+            <form id="scheduleForm">
+                <div class="field">
+                    <div class="control has-icons-left">
+                        <input 
+                            class="input is-large date-input" 
+                            type="date" 
+                            id="appointmentDate" 
+                            required
+                        >
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-calendar"></i>
+                        </span>
+                    </div>
+                    <p class="help" id="dateHelp"></p>
+                </div>
+
+                <div class="field">
+                    <div class="control has-icons-left">
+                        <input 
+                            class="input is-large date-input" 
+                            type="time" 
+                            id="appointmentTime" 
+                            required
+                        >
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-clock"></i>
+                        </span>
+                    </div>
+                    <p class="help" id="timeHelp"></p>
+                </div>
+
+                <div class="field mt-5">
+                    <div class="control">
+                        <button 
+                            class="button is-dark is-large is-rounded" 
+                            type="submit"
+                            id="submitBtn"
+                        >
+                            <span>Schedule</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div id="statusMessage" class="mt-4"></div>
+        </div>
+    </div>
+
+    <script>
+        // Translations
+        const translations = {
+            en: {
+                title: "Schedule your virtual appointment",
+                buttonText: "Schedule",
+                errorScheduling: "Failed to schedule appointment. Please try again.",
+                successMessage: "Appointment scheduled successfully!"
+            },
+            es: {
+                title: "Programa tu cita virtual",
+                buttonText: "Programar",
+                errorScheduling: "Error al programar la cita. Inténtalo de nuevo.",
+                successMessage: "¡Cita programada exitosamente!"
+            },
+            pt: {
+                title: "Agende sua consulta virtual",
+                buttonText: "Agendar",
+                errorScheduling: "Falha ao agendar consulta. Tente novamente.",
+                successMessage: "Consulta agendada com sucesso!"
+            }
+        };
+
+        let currentLanguage = 'en';
+        
+        function t(key) {
+            return translations[currentLanguage][key] || translations['en'][key] || key;
+        }
+
+        function setLanguage(lang) {
+            if (translations[lang]) {
+                currentLanguage = lang;
+                updateUI();
+            }
+        }
+
+        function updateUI() {
+            document.querySelector('.title').textContent = t('title');
+            document.querySelector('#submitBtn span').textContent = t('buttonText');
+        }
+
+        // URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const logoUrl = urlParams.get('logo');
+        const backgroundUrl = urlParams.get('background');
+        const language = urlParams.get('lang') || 'en';
+        
+        if (logoUrl) {
+            document.getElementById('logoImage').src = logoUrl;
+        }
+
+        if (backgroundUrl) {
+            document.body.style.backgroundImage = `url('${backgroundUrl}')`;
+            document.body.style.backgroundSize = 'contain';
+            document.body.style.backgroundPosition = 'center';
+            document.body.style.backgroundRepeat = 'no-repeat';
+        }
+
+        setLanguage(language);
+
+        // Configuration
+        const WEBHOOK_URL = 'https://your-webhook-url.com/schedule';
+        
+        // DOM Elements
+        const dateInput = document.getElementById('appointmentDate');
+        const timeInput = document.getElementById('appointmentTime');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const scheduleForm = document.getElementById('scheduleForm');
+
+        // Set defaults
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+        dateInput.value = today;
+        
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 5);
+        timeInput.value = now.toTimeString().slice(0, 5);
+
+        // Form submission
+        scheduleForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            submitBtn.classList.add('is-loading');
+            submitBtn.disabled = true;
+
+            const payload = {
+                appointmentDate: dateInput.value,
+                appointmentTime: timeInput.value,
+                appointmentDateTime: new Date(dateInput.value + 'T' + timeInput.value).toISOString(),
+                timestamp: new Date().toISOString(),
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showSuccess(t('successMessage'));
+                } else {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Webhook error:', error);
+                console.log('Demo mode: Would send this data to webhook:', payload);
+                showError(t('errorScheduling'));
+            } finally {
+                submitBtn.classList.remove('is-loading');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function showError(message) {
+            statusMessage.innerHTML = `
+                <div class="notification is-danger">
+                    <button class="delete" onclick="this.parentElement.remove()"></button>
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    ${message}
+                </div>
+            `;
+        }
+
+        function showSuccess(message) {
+            statusMessage.innerHTML = `
+                <div class="notification is-success">
+                    <button class="delete" onclick="this.parentElement.remove()"></button>
+                    <i class="fas fa-check-circle mr-2"></i>
+                    ${message}
+                </div>
+            `;
+        }
+
+        function showInfo(message) {
+            statusMessage.innerHTML = `
+                <div class="notification is-info">
+                    <button class="delete" onclick="this.parentElement.remove()"></button>
+                    <i class="fas fa-info-circle mr-2"></i>
+                    ${message}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
