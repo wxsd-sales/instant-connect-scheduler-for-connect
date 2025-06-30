@@ -143,6 +143,7 @@
         const logoUrl = urlParams.get('logo');
         const backgroundUrl = urlParams.get('background');
         const language = urlParams.get('lang') || 'en';
+        const webhookUrl = urlParams.get('webhook') || 'https://your-webhook-url.com/schedule';
         
         if (logoUrl) {
             document.getElementById('logoImage').src = logoUrl;
@@ -157,9 +158,6 @@
 
         setLanguage(language);
 
-        // Configuration
-        const WEBHOOK_URL = 'https://your-webhook-url.com/schedule';
-        
         // DOM Elements
         const dateInput = document.getElementById('appointmentDate');
         const timeInput = document.getElementById('appointmentTime');
@@ -192,7 +190,7 @@
             };
 
             try {
-                const response = await fetch(WEBHOOK_URL, {
+                const response = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
